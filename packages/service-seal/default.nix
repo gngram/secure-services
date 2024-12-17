@@ -1,5 +1,5 @@
 
-{ pkgs }:
+{ pkgs ? import <nixpkgs> {} }:
 
 pkgs.python3.pkgs.buildPythonPackage rec {
   pname = "ghaf-debug";

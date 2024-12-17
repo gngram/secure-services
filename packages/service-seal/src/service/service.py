@@ -167,7 +167,7 @@ class SystemdService:
         base = OptionEvaluator(self, serviceconfigs)
         baseconfigs = base.hardened(True)
         optimalcaps = OptimalOptionsSelector(self, baseconfigs, "CapabilityBoundingSet", linuxcaps)
-        hardenedconf0 = optimalcaps.hardened(minimal=[""])
+        hardenedconf0 = optimalcaps.hardened()
         optimalsyscalls = OptimalOptionsSelector(self, hardenedconf0, "SystemCallFilter", syscallgroups)
         hardenedconf = optimalsyscalls.hardened()
         for conf, options in extraconfs.items():
