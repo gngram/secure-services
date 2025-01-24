@@ -2,6 +2,7 @@ import time
 import os
 import sh
 import re
+import subprocess
 from datetime import datetime
 from .debug import trace
 from .configs import serviceconfigs
@@ -9,6 +10,7 @@ from .optimizer import OptionEvaluator, OptimalOptionsSelector
 from .capabilities import linuxcaps
 from .systemcalls import syscallgroups
 from .extraconfigs import extraconfs
+
 
 Suspects = ["error", "failed", "permission", "allowed", "alert", "warning", "could not", "no such device", "not support" ]
 
@@ -45,12 +47,43 @@ class SystemdService:
                 return False, line.strip()
         return True, None
 
+    '''
     def is_active(self):
         try:
             res = sh.systemctl('is-active', self.service)
             return res.strip() == 'active'
         except sh.ErrorReturnCode as e:
             return False
+    '''
+    def check_service_status(self):
+        try:
+            # Check if the service is loaded
+            loaded_result = subprocess.run(
+                ['systemctl', 'is-enabled', self.service],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True
+            )
+
+            # Check if the service is active
+            active_result = subprocess.run(
+                ['systemctl', 'is-active', self.service],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True
+            )
+
+            if loaded_result.returncode == 0:
+                if active_result.returncode != 0:
+                    return "inactive"
+                else:
+                    return "active"
+            else:
+                return "not-found"
+        except FileNotFoundError:
+            return "failed"
+        except Exception as e:
+            return "failed"
 
     def log_stats(self):
         log = sh.sudo("journalctl", "-b", "0", "-u", f"{self.service}", "--since", self.since)
@@ -89,12 +122,13 @@ class SystemdService:
     def reload(self):
         try:
             sh.sudo('systemctl', 'daemon-reload')
-
-            if self.is_active():
+            status = self.check_service_status()
+            if status == "active" : 
                 sh.sudo('systemctl', 'stop', self.service)
                 time.sleep(self.latency)
 
             self.since = formatted_time_now()
+            time.sleep(2)
             sh.sudo('systemctl', 'start', self.service)
             time.sleep(self.latency)
             return True
@@ -146,7 +180,8 @@ class SystemdService:
                 raise ValueError("Critical Error - 2!")
             return False
 
-        if self.is_active():
+        status = self.check_service_status()
+        if status == "active" or status == "inactive" :
             ok = 'y'
             if self.interactive == True:
                 ok = ""
