@@ -65,21 +65,18 @@ class SystemdService:
                 text=True
             )
 
-            # Check if the service is active
-            active_result = subprocess.run(
-                ['systemctl', 'is-active', self.service],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True
-            )
-
-            if loaded_result.returncode == 0:
-                if active_result.returncode != 0:
-                    return "inactive"
-                else:
-                    return "active"
-            else:
+            if loaded_result.stdout == "not-found":
                 return "not-found"
+            else :
+                # Check if the service is active
+                active_result = subprocess.run(
+                    ['systemctl', 'is-active', self.service],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True
+                )
+
+                return active_result.stdout
         except FileNotFoundError:
             return "failed"
         except Exception as e:
@@ -123,7 +120,7 @@ class SystemdService:
         try:
             sh.sudo('systemctl', 'daemon-reload')
             status = self.check_service_status()
-            if status == "active" : 
+            if status != "not-found" : 
                 sh.sudo('systemctl', 'stop', self.service)
                 time.sleep(self.latency)
 
